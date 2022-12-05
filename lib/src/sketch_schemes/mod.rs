@@ -24,10 +24,10 @@ pub struct KmerCount {
 pub trait SketchScheme {
     fn process(&mut self, seq: SequenceRecord);
     fn total_bases_and_kmers(&self) -> (u64, u64);
-    fn to_vec(&self) -> Vec<KmerCount>;
+    fn to_vec(&mut self) -> Vec<KmerCount>;
     fn parameters(&self) -> SketchParams;
 
-    fn to_sketch(&self) -> Sketch {
+    fn to_sketch(&mut self) -> Sketch {
         // TODO: maybe this should be the primary teardown method for
         // sketching and sketch_stream should wrap it?
         // TODO: this doesn't really use filtering

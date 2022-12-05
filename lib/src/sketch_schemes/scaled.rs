@@ -80,11 +80,15 @@ impl SketchScheme for ScaledSketcher {
         (self.total_bases, self.total_kmers)
     }
 
-    fn to_vec(&self) -> Vec<KmerCount> {
-        let mut vec = self.hashes.clone().into_sorted_vec();
+    fn to_vec(&mut self) -> Vec<KmerCount> {
+        // take self.hashes and swap with empy BinaryHeap
+        // let mut hashes = BinaryHeap::with_capacity(self.size);
+        // std::mem::swap(&mut hashes, &mut self.hashes);
+        // let mut vec = hashes.into_sorted_vec();
 
-        let mut results = Vec::with_capacity(vec.len());
-        for item in vec.drain(..) {
+        let mut results = Vec::with_capacity(self.size);
+        // pop items in self.hashes and push to vec
+        while let Some(item) = self.hashes.pop() {
             let counts = self.counts[&item.hash];
             let new_item = KmerCount {
                 hash: item.hash,
@@ -94,7 +98,7 @@ impl SketchScheme for ScaledSketcher {
                 label: None,
             };
             results.push(new_item);
-        }
+        };
         results
     }
 

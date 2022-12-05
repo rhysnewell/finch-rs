@@ -36,7 +36,7 @@ impl SketchScheme for AllCountsSketcher {
         )
     }
 
-    fn to_vec(&self) -> Vec<KmerCount> {
+    fn to_vec(&mut self) -> Vec<KmerCount> {
         let mut counts = self.counts.clone();
         let mut results = Vec::with_capacity(self.counts.len());
         for ix in 0u64..counts.len() as u64 {
