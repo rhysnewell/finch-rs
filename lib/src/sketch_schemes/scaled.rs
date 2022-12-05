@@ -99,6 +99,7 @@ impl SketchScheme for ScaledSketcher {
             };
             results.push(new_item);
         };
+        results.reverse();
         results
     }
 

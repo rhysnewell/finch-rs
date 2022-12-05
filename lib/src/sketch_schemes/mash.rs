@@ -97,6 +97,7 @@ impl SketchScheme for MashSketcher {
             };
             results.push(new_item);
         };
+        results.reverse();
         results
     }
 

@@ -56,6 +56,7 @@ impl SketchScheme for AllCountsSketcher {
             };
             results.push(new_item);
         }
+        results.reverse();
         results
     }
 
