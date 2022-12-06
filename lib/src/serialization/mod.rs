@@ -28,7 +28,7 @@ pub const FINCH_EXT: &str = ".sk";
 pub const FINCH_BIN_EXT: &str = ".bsk";
 pub const MASH_EXT: &str = ".msh";
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SketchDistance {
     pub containment: f64,
     pub jaccard: f64,
@@ -48,7 +48,6 @@ pub struct Sketch {
     pub seq_length: u64,
     pub num_valid_kmers: u64,
     pub comment: String,
-
     pub hashes: Vec<KmerCount>,
     pub filter_params: FilterParams,
     pub sketch_params: SketchParams,
