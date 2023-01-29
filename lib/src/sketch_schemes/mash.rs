@@ -67,12 +67,11 @@ impl MashSketcher {
 
 impl SketchScheme for MashSketcher {
     fn process(&mut self, seq: SequenceRecord) {
-        self.total_bases += seq.sequence().len() as u64;
-        let rc = seq.reverse_complement();
-        for (_, kmer, is_rev_complement) in
-            seq.normalize(false).canonical_kmers(self.kmer_length, &rc)
-        {
-            let rc_count = if is_rev_complement { 1u8 } else { 0u8 };
+        let norm_seq = seq.normalize(false);
+        self.total_bases += norm_seq.sequence().len() as u64;
+        let rc = norm_seq.reverse_complement();
+        for (_, kmer, is_rev_complement) in norm_seq.canonical_kmers(self.kmer_length, &rc) {
+            let rc_count = u8::from(is_rev_complement);
             self.push(kmer, rc_count);
         }
     }
