@@ -30,13 +30,15 @@ pub fn distance(
 
     let containment = distances.0;
     let jaccard = distances.1;
-    let common_hashes = distances.2;
-    let total_hashes = distances.3;
+    let min_jaccard = distances.2;
+    let common_hashes = distances.3;
+    let total_hashes = distances.4;
     let k = query_sketch.sketch_params.k() as f64;
     let mash_distance: f64 = -1.0 * ((2.0 * jaccard) / (1.0 + jaccard)).ln() / k;
     Ok(SketchDistance {
         containment,
         jaccard,
+        min_jaccard,
         mash_distance: f64::min(1f64, f64::max(0f64, mash_distance)),
         common_hashes,
         total_hashes,
@@ -66,7 +68,7 @@ pub fn raw_distance(
     query_hashes: &[KmerCount],
     ref_hashes: &[KmerCount],
     scale: f64,
-) -> (f64, f64, u64, u64) {
+) -> (f64, f64, f64, u64, u64) {
     fn kmers_are_sorted(kmer_counts: &[KmerCount]) -> bool {
         for slice in kmer_counts.windows(2) {
             if slice[0].hash > slice[1].hash {
@@ -121,7 +123,13 @@ pub fn raw_distance(
         common as f64 / total as f64
     };
 
-    (containment, jaccard, common, total)
+    let min_jaccard: f64 = if i == 0 && j == 0 {
+        1.
+    } else {
+        common as f64 / std::cmp::min(i, j) as f64
+    };
+
+    (containment, jaccard, min_jaccard, common, total)
 }
 
 #[cfg(test)]
@@ -154,26 +162,26 @@ mod tests {
 
     #[test]
     fn test_raw_distance() {
-        let (cont, jac, com, total) = raw_distance(&kc(&[0, 1, 2]), &kc(&[1, 2]), 0.);
+        let (cont, jac, _min_jac, com, total) = raw_distance(&kc(&[0, 1, 2]), &kc(&[1, 2]), 0.);
         assert_eq!(cont, 2. / 2.);
         assert_eq!(jac, 2. / 3.);
         assert_eq!(com, 2);
         assert_eq!(total, 3);
 
-        let (cont, jac, com, total) = raw_distance(&kc(&[0, 2]), &kc(&[1, 2]), 0.);
+        let (cont, jac, _min_jac, com, total) = raw_distance(&kc(&[0, 2]), &kc(&[1, 2]), 0.);
         assert_eq!(cont, 1. / 2.);
         assert_eq!(jac, 1. / 3.);
         assert_eq!(com, 1);
         assert_eq!(total, 3);
 
-        let (cont, jac, com, total) = raw_distance(&kc(&[0, 1]), &kc(&[2, 3]), 0.);
+        let (cont, jac, _min_jac, com, total) = raw_distance(&kc(&[0, 1]), &kc(&[2, 3]), 0.);
         assert_eq!(cont, 0. / 2.);
         assert_eq!(jac, 0. / 2.);
         assert_eq!(com, 0);
         assert_eq!(total, 2);
 
-        assert_eq!((0., 1., 0, 0), raw_distance(&kc(&[]), &kc(&[]), 0.));
-        assert_eq!((0., 1., 0, 0), raw_distance(&kc(&[]), &kc(&[5]), 0.));
+        assert_eq!((0., 1., 1., 0, 0), raw_distance(&kc(&[]), &kc(&[]), 0.));
+        assert_eq!((0., 1., 1., 0, 0), raw_distance(&kc(&[]), &kc(&[5]), 0.));
     }
 
     #[test]
@@ -181,28 +189,28 @@ mod tests {
         // note  below that a scale cutoff of 1e-18 translates to a max_hash of 18
 
         // if the hashes extend above the scale just ignore
-        let (cont, jac, com, total) = raw_distance(&kc(&[10, 15, 20]), &kc(&[15, 20]), 1e-18);
+        let (cont, jac, _min_jac, com, total) = raw_distance(&kc(&[10, 15, 20]), &kc(&[15, 20]), 1e-18);
         assert_eq!(cont, 2. / 2.);
         assert_eq!(jac, 2. / 3.);
         assert_eq!(com, 2);
         assert_eq!(total, 3);
 
         // otherwise, include the extra hashes outside the range
-        let (cont, jac, com, total) = raw_distance(&kc(&[5, 10, 15]), &kc(&[5, 10]), 1e-18);
+        let (cont, jac, _min_jac, com, total) = raw_distance(&kc(&[5, 10, 15]), &kc(&[5, 10]), 1e-18);
         assert_eq!(cont, 2. / 2.);
         assert_eq!(jac, 2. / 3.);
         assert_eq!(com, 2);
         assert_eq!(total, 3);
 
         // only include up to the scale boundary though
-        let (cont, jac, com, total) = raw_distance(&kc(&[5, 10, 15, 20]), &kc(&[5, 10]), 1e-18);
+        let (cont, jac, _min_jac, com, total) = raw_distance(&kc(&[5, 10, 15, 20]), &kc(&[5, 10]), 1e-18);
         assert_eq!(cont, 2. / 2.);
         assert_eq!(jac, 2. / 3.);
         assert_eq!(com, 2);
         assert_eq!(total, 3);
 
         // and check in the reverse for the containment
-        let (cont, jac, com, total) = raw_distance(&kc(&[5, 10]), &kc(&[5, 10, 15, 20]), 1e-18);
+        let (cont, jac, _min_jac, com, total) = raw_distance(&kc(&[5, 10]), &kc(&[5, 10, 15, 20]), 1e-18);
         assert_eq!(cont, 2. / 3.);
         assert_eq!(jac, 2. / 3.);
         assert_eq!(com, 2);
@@ -313,7 +321,7 @@ mod tests {
 /// the reference set because we consider all of the reference set. In
 /// practice, there may be issues especially if the query is sketched to a
 /// different effective scale than the reference.
-pub fn old_distance(query_sketch: &[KmerCount], ref_sketch: &[KmerCount]) -> (f64, f64, u64, u64) {
+pub fn old_distance(query_sketch: &[KmerCount], ref_sketch: &[KmerCount]) -> (f64, f64, f64, u64, u64) {
     let mut i: usize = 0;
     let mut common: u64 = 0;
     let mut total: u64 = 0;
@@ -333,7 +341,12 @@ pub fn old_distance(query_sketch: &[KmerCount], ref_sketch: &[KmerCount]) -> (f6
     // Numerator is A-intersect-B, |A| is the denominator, we enforce |A| == |B|
     let containment: f64 = common as f64 / total as f64;
     let jaccard: f64 = common as f64 / (common + 2 * (total - common)) as f64;
-    (containment, jaccard, common, total)
+    let min_jaccard: f64 = if query_sketch.len() == 0 && ref_sketch.len() == 0 {
+        1.0
+    } else {
+        common as f64 / std::cmp::min(ref_sketch.len(), query_sketch.len()) as f64
+    };
+    (containment, jaccard, min_jaccard, common, total)
 }
 
 // TODO: add another method like this to allow 0's in ref sketch for hashes present in sketches?

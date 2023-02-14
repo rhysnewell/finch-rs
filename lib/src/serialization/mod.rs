@@ -32,6 +32,7 @@ pub const MASH_EXT: &str = ".msh";
 pub struct SketchDistance {
     pub containment: f64,
     pub jaccard: f64,
+    pub min_jaccard: f64,
     #[serde(rename = "mashDistance")]
     pub mash_distance: f64,
     #[serde(rename = "commonHashes")]
